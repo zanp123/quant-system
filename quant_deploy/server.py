@@ -176,7 +176,7 @@ def api_kline():
 
         result = {
             "symbol": symbol,
-            "name": STOCK_POOL.get(symbol, symbol),
+            "name": STOCK_POOL.get(symbol, name_from_qt),
             "dates": dates,
             "open": [round(v, 3) for v in opens],
             "close": [round(v, 3) for v in closes],
