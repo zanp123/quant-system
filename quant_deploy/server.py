@@ -192,6 +192,10 @@ def api_kline():
             "macd_dea": safe_list(dea),
             "macd_hist": safe_list(hist),
             "signal": sig,
+            "latest": {
+    "close": closes[-1],
+    "chg_pct": chg_pct[-1],
+},
         }
         return jsonify({"ok": True, "data": result})
     except Exception as e:
