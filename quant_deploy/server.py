@@ -269,6 +269,30 @@ def api_signals():
             results.append({"symbol": symbol, "name": name, "signal": "错误", "ma_status": str(e)[:30]})
     return jsonify({"ok": True, "data": results})
 
+@app.route("/api/search")
+def api_search():
+    import re
+    q = request.args.get("q", "").strip()
+    if not q:
+        return jsonify({"ok": True, "data": []})
+    try:
+        url = f"https://smartbox.gtimg.cn/s3/?v=2&q={q}&t=all"
+        r = requests.get(url, headers=H, timeout=8)
+        items = re.findall(r'v_hint="([^"]+)"', r.text)
+        results = []
+        for item in items[:20]:
+            parts = item.split("~")
+            if len(parts) >= 3 and parts[0] in ('sh', 'sz'):
+                code = parts[1]
+                name = parts[2].encode().decode('unicode_escape')
+                mkt = '沪市' if parts[0]=='sh' else '深市'
+                if code.startswith('3'): mkt = '创业板'
+                elif code.startswith('68'): mkt = '科创板'
+                results.append({"code": code, "name": name, "mkt": mkt})
+        return jsonify({"ok": True, "data": results})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
 
 if __name__ == "__main__":
     import os
