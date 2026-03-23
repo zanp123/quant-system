@@ -285,24 +285,33 @@ def api_signals():
 
 @app.route("/api/search")
 def api_search():
-    import re
+    import re, json
+    from urllib.parse import quote
     q = request.args.get("q", "").strip()
     if not q:
         return jsonify({"ok": True, "data": []})
     try:
-        url = f"https://smartbox.gtimg.cn/s3/?v=2&q={q}&t=all"
-        r = requests.get(url, headers=H, timeout=8)
+        url = f"https://smartbox.gtimg.cn/s3/?v=2&q={quote(q)}&t=all"
+        r = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=8)
         items = re.findall(r'v_hint="([^"]+)"', r.text)
         results = []
+        seen = set()
         for item in items[:20]:
-            parts = item.split("~")
-            if len(parts) >= 3 and parts[0] in ('sh', 'sz'):
-                code = parts[1]
-                name = parts[2].encode().decode('unicode_escape')
-                mkt = '沪市' if parts[0]=='sh' else '深市'
-                if code.startswith('3'): mkt = '创业板'
-                elif code.startswith('68'): mkt = '科创板'
-                results.append({"code": code, "name": name, "mkt": mkt})
+            for seg in item.split("^"):
+                parts = seg.split("~")
+                if len(parts) >= 3 and parts[0] in ('sh', 'sz'):
+                    code = parts[1]
+                    if code in seen: continue
+                    seen.add(code)
+                    raw_name = parts[2]
+                    try:
+                        name = json.loads('"' + raw_name + '"')
+                    except:
+                        name = raw_name
+                    mkt = '沪市' if parts[0]=='sh' else '深市'
+                    if code.startswith('3'): mkt = '创业板'
+                    elif code.startswith('68'): mkt = '科创板'
+                    results.append({"code": code, "name": name, "mkt": mkt})
         return jsonify({"ok": True, "data": results})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
