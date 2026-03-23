@@ -220,23 +220,30 @@ def api_backtest():
 
 @app.route("/api/realtime")
 def api_realtime():
-    """获取股票池实时行情快照"""
     try:
-        df = ak.stock_zh_a_spot_em()
         symbols = list(STOCK_POOL.keys())
-        df = df[df["代码"].isin(symbols)].copy()
+        codes = ",".join([("sh" if s.startswith("6") else "sz") + s for s in symbols])
+        url = f"https://qt.gtimg.cn/q={codes}"
+        r = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=8)
+        r.encoding = "gbk"
         records = []
-        for _, row in df.iterrows():
+        for line in r.text.strip().split("\n"):
+            if "=" not in line:
+                continue
+            data = line.split("~")
+            if len(data) < 32:
+                continue
+            symbol = data[2]
             records.append({
-                "symbol":  row["代码"],
-                "name":    row["名称"],
-                "price":   round(float(row["最新价"]), 2),
-                "chg_pct": round(float(row["涨跌幅"]), 2),
-                "chg_amt": round(float(row["涨跌额"]), 2),
-                "volume":  float(row["成交量"]),
-                "amount":  float(row["成交额"]),
-                "high":    round(float(row["最高"]), 2),
-                "low":     round(float(row["最低"]), 2),
+                "symbol":  symbol,
+                "name":    data[1],
+                "price":   round(float(data[3]), 2),
+                "chg_pct": round(float(data[32]), 2),
+                "chg_amt": round(float(data[31]), 2),
+                "volume":  float(data[6]),
+                "amount":  float(data[37]) if len(data) > 37 else 0,
+                "high":    round(float(data[33]), 2),
+                "low":     round(float(data[34]), 2),
             })
         return jsonify({"ok": True, "data": records, "ts": datetime.now().strftime("%H:%M:%S")})
     except Exception as e:
@@ -245,26 +252,24 @@ def api_realtime():
 
 @app.route("/api/signals")
 def api_signals():
-    """批量计算股票池信号"""
     results = []
     for symbol, name in STOCK_POOL.items():
         try:
-            end_date   = datetime.today().strftime("%Y%m%d")
-            start_date = (datetime.today() - timedelta(days=120)).strftime("%Y%m%d")
-            df = ak.stock_zh_a_hist(
-                symbol=symbol, period="daily",
-                start_date=start_date, end_date=end_date, adjust="qfq"
-            )
-            closes = df["收盘"].astype(float)
+            prefix = "sh" if symbol.startswith("6") else "sz"
+            url = f"https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param={prefix}{symbol},day,,,120,qfq"
+            r = requests.get(url, timeout=8)
+            raw = r.json()
+            key = f"{prefix}{symbol}"
+            kdata = raw["data"][key].get("qfqday", raw["data"][key].get("day", []))
+            closes = pd.Series([float(row[2]) for row in kdata])
             sig = ma_signal(closes)
             rsi_val = calc_rsi(closes).iloc[-1]
             results.append({
                 "symbol": symbol,
-                "name":   name,
+                "name": name,
                 "signal": sig["signal"],
                 "ma_status": sig["ma_status"],
-                "strength": sig.get("strength", 2),
-                "rsi": round(rsi_val, 1) if not pd.isna(rsi_val) else None,
+                "rsi": round(float(rsi_val), 1) if not pd.isna(rsi_val) else None,
             })
         except Exception as e:
             results.append({"symbol": symbol, "name": name, "signal": "错误", "ma_status": str(e)[:30]})
