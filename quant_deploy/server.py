@@ -208,19 +208,21 @@ def api_kline():
 
 @app.route("/api/backtest")
 def api_backtest():
-    """对指定股票运行双均线回测"""
     symbol = request.args.get("symbol", "300418")
-    days   = int(request.args.get("days", 500))
+    days = int(request.args.get("days", 500))
     try:
-        end_date   = datetime.today().strftime("%Y%m%d")
-        start_date = (datetime.today() - timedelta(days=days * 2)).strftime("%Y%m%d")
-        df = ak.stock_zh_a_hist(
-            symbol=symbol, period="daily",
-            start_date=start_date, end_date=end_date, adjust="qfq"
-        ).tail(days).reset_index(drop=True)
+        prefix = "sh" if symbol.startswith("6") else "sz"
+        url = f"https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param={prefix}{symbol},day,,,{days},qfq"
+        r = requests.get(url, timeout=8)
+        raw = r.json()
+        key = f"{prefix}{symbol}"
+        kdata = raw["data"][key].get("qfqday", raw["data"][key].get("day", []))
+        dates = [row[0] for row in kdata]
+        closes = [float(row[2]) for row in kdata]
+        df = pd.DataFrame({"日期": dates, "收盘": closes})
         result = backtest_ma_strategy(df)
         result["symbol"] = symbol
-        result["name"]   = STOCK_POOL.get(symbol, symbol)
+        result["name"] = STOCK_POOL.get(symbol, symbol)
         return jsonify({"ok": True, "data": result})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
