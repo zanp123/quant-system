@@ -195,7 +195,11 @@ def api_kline():
             "latest": {
     "close": closes[-1],
     "chg_pct": chg_pct[-1],
+    "high": highs[-1],
+    "low": lows[-1],
+    "date": dates[-1],
 },
+           
         }
         return jsonify({"ok": True, "data": result})
     except Exception as e:
