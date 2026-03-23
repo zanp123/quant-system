@@ -130,72 +130,72 @@ def index():
     return send_from_directory("static", "index.html")
 
 @app.route("/api/kline")
+@app.route("/api/kline")
 def api_kline():
-    """获取股票历史K线数据"""
     symbol = request.args.get("symbol", "300418")
-    period = request.args.get("period", "daily")   # daily / weekly
-    days   = int(request.args.get("days", 130))
-    adjust = request.args.get("adjust", "qfq")      # qfq前复权 / hfq后复权 / ""不复权
+    period = request.args.get("period", "daily")
+    days = int(request.args.get("days", 130))
+    adjust = request.args.get("adjust", "qfq")
 
     try:
-        end_date   = datetime.today().strftime("%Y%m%d")
-        start_date = (datetime.today() - timedelta(days=days * 2)).strftime("%Y%m%d")
+        # 判断市场前缀
+        prefix = "sh" if symbol.startswith("6") else "sz"
+        period_map = {"daily": "day", "weekly": "week"}
+        p = period_map.get(period, "day")
+        adjust_map = {"qfq": "qfq", "hfq": "hfq", "": ""}
+        adj = adjust_map.get(adjust, "qfq")
 
-        df = ak.stock_zh_a_hist(
-            symbol=symbol,
-            period=period,
-            start_date=start_date,
-            end_date=end_date,
-            adjust=adjust,
-        )
-        df = df.tail(days).reset_index(drop=True)
-        closes = df["收盘"].astype(float)
+        url = f"https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param={prefix}{symbol},{p},,,{days},{adj}"
+        r = requests.get(url, timeout=8)
+        raw = r.json()
 
-        # 技术指标
-        ma5_s, ma20_s, ma60_s = calc_ma(closes, 5), calc_ma(closes, 20), calc_ma(closes, 60)
-        rsi_s = calc_rsi(closes)
-        dif, dea, hist = calc_macd(closes)
-        boll_u, boll_m, boll_l = calc_bollinger(closes)
-        sig = ma_signal(closes)
+        key = f"{prefix}{symbol}"
+        kdata = raw["data"][key].get(f"{adj}{p}", raw["data"][key].get(p, []))
+
+        dates, opens, closes, highs, lows, volumes = [], [], [], [], [], []
+        for row in kdata[-days:]:
+            dates.append(row[0])
+            opens.append(float(row[1]))
+            closes.append(float(row[2]))
+            highs.append(float(row[3]))
+            lows.append(float(row[4]))
+            volumes.append(float(row[5]))
+
+        closes_s = pd.Series(closes)
+        ma5_s = calc_ma(closes_s, 5)
+        ma20_s = calc_ma(closes_s, 20)
+        ma60_s = calc_ma(closes_s, 60)
+        rsi_s = calc_rsi(closes_s)
+        dif, dea, hist = calc_macd(closes_s)
+        sig = ma_signal(closes_s)
 
         def safe_list(s):
             return [None if pd.isna(v) else v for v in s.tolist()]
 
+        chg_pct = [0.0] + [round((closes[i]-closes[i-1])/closes[i-1]*100, 2) for i in range(1, len(closes))]
+
         result = {
-            "symbol":  symbol,
-            "name":    STOCK_POOL.get(symbol, symbol),
-            "dates":   df["日期"].astype(str).tolist(),
-            "open":    df["开盘"].astype(float).round(3).tolist(),
-            "close":   closes.round(3).tolist(),
-            "high":    df["最高"].astype(float).round(3).tolist(),
-            "low":     df["最低"].astype(float).round(3).tolist(),
-            "volume":  df["成交量"].astype(float).tolist(),
-            "chg_pct": df["涨跌幅"].astype(float).round(2).tolist(),
-            "ma5":     safe_list(ma5_s),
-            "ma20":    safe_list(ma20_s),
-            "ma60":    safe_list(ma60_s),
-            "rsi":     safe_list(rsi_s),
-            "macd_dif":  safe_list(dif),
-            "macd_dea":  safe_list(dea),
+            "symbol": symbol,
+            "name": STOCK_POOL.get(symbol, symbol),
+            "dates": dates,
+            "open": [round(v, 3) for v in opens],
+            "close": [round(v, 3) for v in closes],
+            "high": [round(v, 3) for v in highs],
+            "low": [round(v, 3) for v in lows],
+            "volume": volumes,
+            "chg_pct": chg_pct,
+            "ma5": safe_list(ma5_s),
+            "ma20": safe_list(ma20_s),
+            "ma60": safe_list(ma60_s),
+            "rsi": safe_list(rsi_s),
+            "macd_dif": safe_list(dif),
+            "macd_dea": safe_list(dea),
             "macd_hist": safe_list(hist),
-            "boll_upper": safe_list(boll_u),
-            "boll_mid":   safe_list(boll_m),
-            "boll_lower": safe_list(boll_l),
-            "signal":  sig,
-            "latest": {
-                "date":    str(df["日期"].iloc[-1]),
-                "close":   float(closes.iloc[-1]),
-                "chg_pct": float(df["涨跌幅"].iloc[-1]),
-                "volume":  float(df["成交量"].iloc[-1]),
-                "high":    float(df["最高"].iloc[-1]),
-                "low":     float(df["最低"].iloc[-1]),
-            }
+            "signal": sig,
         }
         return jsonify({"ok": True, "data": result})
-
     except Exception as e:
-        traceback.print_exc()
-        return jsonify({"ok": False, "error": str(e)}), 500
+        return jsonify({"ok": False, "error": str(e)})
 
 
 @app.route("/api/backtest")
