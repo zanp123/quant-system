@@ -327,21 +327,24 @@ function switchPage(n) {
 const searchInput = document.getElementById('searchInput');
 const searchResults = document.getElementById('searchResults');
 
-searchInput.addEventListener('input', function() {
+searchInput.addEventListener('input', async function() {
   const q = this.value.trim();
   if (!q) { searchResults.classList.remove('show'); return; }
-  const results = STOCKS.filter(s =>
-    s.code.includes(q) || s.name.includes(q)
-  ).slice(0, 8);
-  if (results.length === 0) { searchResults.classList.remove('show'); return; }
-  searchResults.innerHTML = results.map(s => `
-    <div class="search-item" onclick="selectStock('${s.code}','${s.name}')">
-      <span class="search-code">${s.code}</span>
-      <span class="search-name">${s.name}</span>
-      <span class="search-mkt">${s.mkt}</span>
-    </div>
-  `).join('');
-  searchResults.classList.add('show');
+  try {
+    const res = await fetch(`${API}/search?q=${encodeURIComponent(q)}`);
+    const json = await res.json();
+    if (!json.ok || json.data.length === 0) { searchResults.classList.remove('show'); return; }
+    searchResults.innerHTML = json.data.map(s => `
+      <div class="search-item" onclick="selectStock('${s.code}','${s.name}')">
+        <span class="search-code">${s.code}</span>
+        <span class="search-name">${s.name}</span>
+        <span class="search-mkt">${s.mkt}</span>
+      </div>
+    `).join('');
+    searchResults.classList.add('show');
+  } catch(e) {
+    searchResults.classList.remove('show');
+  }
 });
 
 searchInput.addEventListener('keydown', function(e) {
@@ -352,19 +355,25 @@ document.addEventListener('click', function(e) {
   if (!e.target.closest('.search-wrap')) searchResults.classList.remove('show');
 });
 
-function doSearch() {
+async function doSearch() {
   const q = searchInput.value.trim();
   if (!q) return;
-  // 如果是6位数字直接查
   if (/^\d{6}$/.test(q)) {
-    const found = STOCKS.find(s => s.code === q);
-    selectStock(q, found ? found.name : q);
+    selectStock(q, q);
     return;
   }
-  // 模糊匹配
-  const found = STOCKS.find(s => s.code.includes(q) || s.name.includes(q));
-  if (found) selectStock(found.code, found.name);
-  else log('WARN', `未找到股票: ${q}，请输入准确的股票代码`);
+  try {
+    const res = await fetch(`${API}/search?q=${encodeURIComponent(q)}`);
+    const json = await res.json();
+    if (json.ok && json.data.length > 0) {
+      const found = json.data[0];
+      selectStock(found.code, found.name);
+    } else {
+      log('WARN', `未找到股票: ${q}`);
+    }
+  } catch(e) {
+    log('ERR', `搜索失败: ${e.message}`);
+  }
   searchResults.classList.remove('show');
 }
 
