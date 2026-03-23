@@ -13,6 +13,7 @@ import numpy as np
 from datetime import datetime, timedelta
 import traceback
 import os
+import requests
 
 app = Flask(__name__, static_folder="static")
 CORS(app)
