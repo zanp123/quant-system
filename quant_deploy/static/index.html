@@ -463,7 +463,7 @@ function mk(items) {
 
 function updateStockInfo(d) {
   const l=d.latest;
-  document.getElementById('stockName').textContent=d.name||currentName;
+  document.getElementById('stockName').textContent=currentName||d.name;
   document.getElementById('stockCode').textContent=d.symbol||currentSymbol;
   document.getElementById('stockPrice').textContent='¥'+l.close.toFixed(2);
   document.getElementById('stockPrice').className='stock-price-big '+(l.chg_pct>=0?'up':'dn');
