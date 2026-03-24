@@ -7,27 +7,14 @@ A股量化系统 - 后端服务
 
 from flask import Flask, jsonify, send_from_directory, request
 from flask_cors import CORS
-import akshare as ak
 import pandas as pd
 import numpy as np
-from datetime import datetime, timedelta
-import traceback
+from datetime import datetime
 import os
 import requests
 
 app = Flask(__name__, static_folder="static")
 CORS(app)
-
-# ── 股票池配置 ──────────────────────────────────────────
-STOCK_POOL = {
-    "600519": "贵州茅台",
-    "000858": "五粮液",
-    "300750": "宁德时代",
-    "601318": "中国平安",
-    "300418": "昆仑万维",
-    "000333": "美的集团",
-}
-
 # ── 工具函数 ────────────────────────────────────────────
 def calc_ma(series: pd.Series, n: int) -> pd.Series:
     return series.rolling(n).mean().round(3)
@@ -55,7 +42,6 @@ def calc_bollinger(series: pd.Series, n: int = 20, k: float = 2.0):
     return upper, mid.round(3), lower
 
 def ma_signal(closes: pd.Series) -> dict:
-    """基于双均线判断当前信号"""
     ma5  = calc_ma(closes, 5)
     ma20 = calc_ma(closes, 20)
     if ma5.iloc[-1] is None or ma20.iloc[-1] is None:
@@ -72,17 +58,33 @@ def ma_signal(closes: pd.Series) -> dict:
         return {"signal": "持有", "ma_status": "多头排列", "strength": 3}
     return {"signal": "关注", "ma_status": "空头排列", "strength": 2}
 
+def _calc_backtest_stats(equity: list, trades: list) -> dict:
+    sell_trades = [t for t in trades if t["type"] == "sell"]
+    if not sell_trades:
+        return {"total_return": 0, "win_rate": 0, "trade_count": 0, "sharpe": 0, "max_drawdown": 0}
+    win_trades = [t for t in sell_trades if t.get("ret", 0) > 0]
+    total_return = (equity[-1] - 1) * 100
+    eq = pd.Series(equity)
+    roll_max = eq.cummax()
+    drawdown = ((eq - roll_max) / roll_max).min() * 100
+    returns = eq.pct_change().dropna()
+    sharpe = (returns.mean() / returns.std() * (252 ** 0.5)) if returns.std() > 0 else 0
+    return {
+        "total_return": round(total_return, 2),
+        "win_rate": round(len(win_trades) / len(sell_trades) * 100, 1),
+        "trade_count": len(sell_trades),
+        "sharpe": round(sharpe, 2),
+        "max_drawdown": round(drawdown, 2),
+    }
+
 def backtest_ma_strategy(df: pd.DataFrame) -> dict:
-    """双均线策略简单回测"""
     closes = df["收盘"].astype(float)
     ma5  = calc_ma(closes, 5)
     ma20 = calc_ma(closes, 20)
-
     position = 0
     buy_price = 0
     trades = []
     equity = [1.0]
-
     for i in range(1, len(closes)):
         if pd.isna(ma5.iloc[i]) or pd.isna(ma20.iloc[i]):
             equity.append(equity[-1])
@@ -99,29 +101,43 @@ def backtest_ma_strategy(df: pd.DataFrame) -> dict:
             position = 0
             continue
         equity.append(equity[-1] * (1 + (closes.iloc[i] - closes.iloc[i-1]) / closes.iloc[i-1]) if position == 1 else equity[-1])
+    return _calc_backtest_stats(equity, trades)
 
-    if not trades:
-        return {"total_return": 0, "win_rate": 0, "trade_count": 0, "sharpe": 0, "max_drawdown": 0}
+def backtest_boll_strategy(df: pd.DataFrame) -> dict:
+    closes = df["收盘"].astype(float)
+    boll_u, boll_m, boll_l = calc_bollinger(closes)
+    position = 0
+    buy_price = 0
+    trades = []
+    equity = [1.0]
+    for i in range(1, len(closes)):
+        if pd.isna(boll_u.iloc[i]) or pd.isna(boll_l.iloc[i]):
+            equity.append(equity[-1])
+            continue
+        if closes.iloc[i] <= boll_l.iloc[i] and position == 0:
+            position = 1
+            buy_price = closes.iloc[i]
+            trades.append({"type": "buy", "price": buy_price, "date": df["日期"].iloc[i]})
+        elif closes.iloc[i] >= boll_u.iloc[i] and position == 1:
+            sell_price = closes.iloc[i]
+            ret = (sell_price - buy_price) / buy_price
+            trades.append({"type": "sell", "price": sell_price, "date": df["日期"].iloc[i], "ret": round(ret, 4)})
+            equity.append(equity[-1] * (1 + ret))
+            position = 0
+            continue
+        equity.append(equity[-1] * (1 + (closes.iloc[i] - closes.iloc[i-1]) / closes.iloc[i-1]) if position == 1 else equity[-1])
+    return _calc_backtest_stats(equity, trades)
 
-    sell_trades = [t for t in trades if t["type"] == "sell"]
-    win_trades  = [t for t in sell_trades if t.get("ret", 0) > 0]
-    total_return = (equity[-1] - 1) * 100
-
-    eq = pd.Series(equity)
-    roll_max = eq.cummax()
-    drawdown = ((eq - roll_max) / roll_max).min() * 100
-
-    returns = eq.pct_change().dropna()
-    sharpe = (returns.mean() / returns.std() * (252 ** 0.5)) if returns.std() > 0 else 0
-
-    return {
-        "total_return": round(total_return, 2),
-        "win_rate": round(len(win_trades) / len(sell_trades) * 100, 1) if sell_trades else 0,
-        "trade_count": len(sell_trades),
-        "sharpe": round(sharpe, 2),
-        "max_drawdown": round(drawdown, 2),
-    }
-
+def _fetch_kdata(symbol: str, days: int) -> pd.DataFrame:
+    prefix = "sh" if symbol.startswith("6") else "sz"
+    url = f"https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param={prefix}{symbol},day,,,{days},qfq"
+    r = requests.get(url, timeout=8)
+    raw = r.json()
+    key = f"{prefix}{symbol}"
+    kdata = raw["data"][key].get("qfqday", raw["data"][key].get("day", []))
+    dates = [row[0] for row in kdata]
+    closes = [float(row[2]) for row in kdata]
+    return pd.DataFrame({"日期": dates, "收盘": closes})
 
 # ── API 路由 ────────────────────────────────────────────
 
@@ -130,28 +146,21 @@ def index():
     return send_from_directory("static", "index.html")
 
 @app.route("/api/kline")
-@app.route("/api/kline")
 def api_kline():
     symbol = request.args.get("symbol", "300418")
     period = request.args.get("period", "daily")
     days = int(request.args.get("days", 130))
     adjust = request.args.get("adjust", "qfq")
-
     try:
-        # 判断市场前缀
         prefix = "sh" if symbol.startswith("6") else "sz"
         period_map = {"daily": "day", "weekly": "week"}
         p = period_map.get(period, "day")
-        adjust_map = {"qfq": "qfq", "hfq": "hfq", "": ""}
-        adj = adjust_map.get(adjust, "qfq")
-
+        adj = adjust if adjust in ("qfq", "hfq", "") else "qfq"
         url = f"https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param={prefix}{symbol},{p},,,{days},{adj}"
         r = requests.get(url, timeout=8)
         raw = r.json()
-
         key = f"{prefix}{symbol}"
         kdata = raw["data"][key].get(f"{adj}{p}", raw["data"][key].get(p, []))
-
         dates, opens, closes, highs, lows, volumes = [], [], [], [], [], []
         for row in kdata[-days:]:
             dates.append(row[0])
@@ -160,20 +169,17 @@ def api_kline():
             highs.append(float(row[3]))
             lows.append(float(row[4]))
             volumes.append(float(row[5]))
-
         closes_s = pd.Series(closes)
         ma5_s = calc_ma(closes_s, 5)
         ma20_s = calc_ma(closes_s, 20)
         ma60_s = calc_ma(closes_s, 60)
         rsi_s = calc_rsi(closes_s)
         dif, dea, hist = calc_macd(closes_s)
+        boll_u, boll_m, boll_l = calc_bollinger(closes_s)
         sig = ma_signal(closes_s)
-
         def safe_list(s):
             return [None if pd.isna(v) else v for v in s.tolist()]
-
         chg_pct = [0.0] + [round((closes[i]-closes[i-1])/closes[i-1]*100, 2) for i in range(1, len(closes))]
-
         result = {
             "symbol": symbol,
             "name": STOCK_POOL.get(symbol, symbol),
@@ -191,42 +197,39 @@ def api_kline():
             "macd_dif": safe_list(dif),
             "macd_dea": safe_list(dea),
             "macd_hist": safe_list(hist),
+            "boll_upper": safe_list(boll_u),
+            "boll_mid": safe_list(boll_m),
+            "boll_lower": safe_list(boll_l),
             "signal": sig,
             "latest": {
-    "close": closes[-1],
-    "chg_pct": chg_pct[-1],
-    "high": highs[-1],
-    "low": lows[-1],
-    "date": dates[-1],
-},
-           
+                "close": closes[-1],
+                "chg_pct": chg_pct[-1],
+                "high": highs[-1],
+                "low": lows[-1],
+                "date": dates[-1],
+            },
         }
         return jsonify({"ok": True, "data": result})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)})
 
-
 @app.route("/api/backtest")
 def api_backtest():
     symbol = request.args.get("symbol", "300418")
     days = int(request.args.get("days", 500))
+    strategy = request.args.get("strategy", "ma")
     try:
-        prefix = "sh" if symbol.startswith("6") else "sz"
-        url = f"https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param={prefix}{symbol},day,,,{days},qfq"
-        r = requests.get(url, timeout=8)
-        raw = r.json()
-        key = f"{prefix}{symbol}"
-        kdata = raw["data"][key].get("qfqday", raw["data"][key].get("day", []))
-        dates = [row[0] for row in kdata]
-        closes = [float(row[2]) for row in kdata]
-        df = pd.DataFrame({"日期": dates, "收盘": closes})
-        result = backtest_ma_strategy(df)
+        df = _fetch_kdata(symbol, days)
+        if strategy == "boll":
+            result = backtest_boll_strategy(df)
+        else:
+            result = backtest_ma_strategy(df)
         result["symbol"] = symbol
         result["name"] = STOCK_POOL.get(symbol, symbol)
+        result["strategy"] = strategy
         return jsonify({"ok": True, "data": result})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
-
 
 @app.route("/api/realtime")
 def api_realtime():
@@ -259,69 +262,10 @@ def api_realtime():
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
 
-
 @app.route("/api/signals")
 def api_signals():
     results = []
     for symbol, name in STOCK_POOL.items():
         try:
             prefix = "sh" if symbol.startswith("6") else "sz"
-            url = f"https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param={prefix}{symbol},day,,,120,qfq"
-            r = requests.get(url, timeout=8)
-            raw = r.json()
-            key = f"{prefix}{symbol}"
-            kdata = raw["data"][key].get("qfqday", raw["data"][key].get("day", []))
-            closes = pd.Series([float(row[2]) for row in kdata])
-            sig = ma_signal(closes)
-            rsi_val = calc_rsi(closes).iloc[-1]
-            results.append({
-                "symbol": symbol,
-                "name": name,
-                "signal": sig["signal"],
-                "ma_status": sig["ma_status"],
-                "rsi": round(float(rsi_val), 1) if not pd.isna(rsi_val) else None,
-            })
-        except Exception as e:
-            results.append({"symbol": symbol, "name": name, "signal": "错误", "ma_status": str(e)[:30]})
-    return jsonify({"ok": True, "data": results})
-
-@app.route("/api/search")
-def api_search():
-    import re, json
-    from urllib.parse import quote
-    q = request.args.get("q", "").strip()
-    if not q:
-        return jsonify({"ok": True, "data": []})
-    try:
-        url = f"https://smartbox.gtimg.cn/s3/?v=2&q={quote(q)}&t=all"
-        r = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=8)
-        items = re.findall(r'v_hint="([^"]+)"', r.text)
-        results = []
-        seen = set()
-        for item in items[:20]:
-            for seg in item.split("^"):
-                parts = seg.split("~")
-                if len(parts) >= 3 and parts[0] in ('sh', 'sz'):
-                    code = parts[1]
-                    if code in seen: continue
-                    seen.add(code)
-                    raw_name = parts[2]
-                    try:
-                        name = json.loads('"' + raw_name + '"')
-                    except:
-                        name = raw_name
-                    mkt = '沪市' if parts[0]=='sh' else '深市'
-                    if code.startswith('3'): mkt = '创业板'
-                    elif code.startswith('68'): mkt = '科创板'
-                    results.append({"code": code, "name": name, "mkt": mkt})
-        return jsonify({"ok": True, "data": results})
-    except Exception as e:
-        return jsonify({"ok": False, "error": str(e)}), 500
-
-
-if __name__ == "__main__":
-    import os
-    port = int(os.environ.get("PORT", 5000))
-    debug = os.environ.get("FLASK_ENV") == "development"
-    print(f"启动服务，端口: {port}")
-    app.run(debug=debug, port=port, host="0.0.0.0")
+            url = f"https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?
