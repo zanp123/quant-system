@@ -1,8 +1,5 @@
 """
 A股量化系统 - 后端服务
-依赖安装: pip install flask flask-cors akshare pandas numpy
-启动方式: python server.py
-访问地址: http://127.0.0.1:5000
 """
 
 from flask import Flask, jsonify, send_from_directory, request
@@ -15,6 +12,17 @@ import requests
 
 app = Flask(__name__, static_folder="static")
 CORS(app)
+
+# ── 股票池配置（用于实时行情和信号扫描）──────────────────
+STOCK_POOL = {
+    "600519": "贵州茅台",
+    "000858": "五粮液",
+    "300750": "宁德时代",
+    "601318": "中国平安",
+    "300418": "昆仑万维",
+    "000333": "美的集团",
+}
+
 # ── 工具函数 ────────────────────────────────────────────
 def calc_ma(series: pd.Series, n: int) -> pd.Series:
     return series.rolling(n).mean().round(3)
@@ -103,32 +111,46 @@ def backtest_ma_strategy(df: pd.DataFrame) -> dict:
         equity.append(equity[-1] * (1 + (closes.iloc[i] - closes.iloc[i-1]) / closes.iloc[i-1]) if position == 1 else equity[-1])
     return _calc_backtest_stats(equity, trades)
 
+def backtest_boll_strategy(df: pd.DataFrame) -> dict:
+    closes = df["收盘"].astype(float)
+    boll_u, boll_m, boll_l = calc_bollinger(closes)
+    position = 0
+    buy_price = 0
+    trades = []
+    equity = [1.0]
+    for i in range(1, len(closes)):
+        if pd.isna(boll_u.iloc[i]) or pd.isna(boll_l.iloc[i]):
+            equity.append(equity[-1])
+            continue
+        if closes.iloc[i] <= boll_l.iloc[i] and position == 0:
+            position = 1
+            buy_price = closes.iloc[i]
+            trades.append({"type": "buy", "price": buy_price, "date": df["日期"].iloc[i]})
+        elif closes.iloc[i] >= boll_u.iloc[i] and position == 1:
+            sell_price = closes.iloc[i]
+            ret = (sell_price - buy_price) / buy_price
+            trades.append({"type": "sell", "price": sell_price, "date": df["日期"].iloc[i], "ret": round(ret, 4)})
+            equity.append(equity[-1] * (1 + ret))
+            position = 0
+            continue
+        equity.append(equity[-1] * (1 + (closes.iloc[i] - closes.iloc[i-1]) / closes.iloc[i-1]) if position == 1 else equity[-1])
+    return _calc_backtest_stats(equity, trades)
 
 def backtest_turtle_strategy(df: pd.DataFrame) -> dict:
     closes = pd.Series(df["收盘"].astype(float).values)
-    highs = closes  # 简化版用收盘价代替最高价
-    lows = closes
-
-    don_high = closes.rolling(20).max()  # 唐安奇通道上轨
-    don_low = closes.rolling(10).min()   # 唐安奇通道下轨
-
-    # ATR计算（简化版，用收盘价波动代替）
+    don_high = closes.rolling(20).max()
+    don_low = closes.rolling(10).min()
     atr = closes.diff().abs().rolling(14).mean()
-
     position = 0
     buy_price = 0
     stop_loss = 0
     trades = []
     equity = [1.0]
-
     for i in range(1, len(closes)):
         if pd.isna(don_high.iloc[i]) or pd.isna(don_low.iloc[i]):
             equity.append(equity[-1])
             continue
-
-        # 持仓时检查止损和退出信号
         if position == 1:
-            # 止损或跌破下轨
             if closes.iloc[i] <= stop_loss or closes.iloc[i] <= don_low.iloc[i]:
                 sell_price = closes.iloc[i]
                 ret = (sell_price - buy_price) / buy_price
@@ -136,17 +158,13 @@ def backtest_turtle_strategy(df: pd.DataFrame) -> dict:
                 equity.append(equity[-1] * (1 + ret))
                 position = 0
                 continue
-
-        # 突破上轨买入
         if closes.iloc[i] > don_high.iloc[i-1] and position == 0:
             position = 1
             buy_price = closes.iloc[i]
             atr_val = atr.iloc[i] if not pd.isna(atr.iloc[i]) else closes.iloc[i] * 0.02
             stop_loss = buy_price - 2 * atr_val
             trades.append({"type": "buy", "price": buy_price, "date": df["日期"].iloc[i]})
-
         equity.append(equity[-1] * (1 + (closes.iloc[i] - closes.iloc[i-1]) / closes.iloc[i-1]) if position == 1 else equity[-1])
-
     return _calc_backtest_stats(equity, trades)
 
 def _fetch_kdata(symbol: str, days: int) -> pd.DataFrame:
@@ -247,7 +265,6 @@ def api_backtest():
             result = backtest_turtle_strategy(df)
         else:
             result = backtest_ma_strategy(df)
-
         result["symbol"] = symbol
         result["name"] = STOCK_POOL.get(symbol, symbol)
         result["strategy"] = strategy
@@ -293,3 +310,59 @@ def api_signals():
         try:
             prefix = "sh" if symbol.startswith("6") else "sz"
             url = f"https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param={prefix}{symbol},day,,,120,qfq"
+            r = requests.get(url, timeout=8)
+            raw = r.json()
+            key = f"{prefix}{symbol}"
+            kdata = raw["data"][key].get("qfqday", raw["data"][key].get("day", []))
+            closes = pd.Series([float(row[2]) for row in kdata])
+            sig = ma_signal(closes)
+            rsi_val = calc_rsi(closes).iloc[-1]
+            results.append({
+                "symbol": symbol,
+                "name": name,
+                "signal": sig["signal"],
+                "ma_status": sig["ma_status"],
+                "rsi": round(float(rsi_val), 1) if not pd.isna(rsi_val) else None,
+            })
+        except Exception as e:
+            results.append({"symbol": symbol, "name": name, "signal": "错误", "ma_status": str(e)[:30]})
+    return jsonify({"ok": True, "data": results})
+
+@app.route("/api/search")
+def api_search():
+    import re, json
+    from urllib.parse import quote
+    q = request.args.get("q", "").strip()
+    if not q:
+        return jsonify({"ok": True, "data": []})
+    try:
+        url = f"https://smartbox.gtimg.cn/s3/?v=2&q={quote(q)}&t=all"
+        r = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=8)
+        items = re.findall(r'v_hint="([^"]+)"', r.text)
+        results = []
+        seen = set()
+        for item in items[:20]:
+            for seg in item.split("^"):
+                parts = seg.split("~")
+                if len(parts) >= 3 and parts[0] in ('sh', 'sz'):
+                    code = parts[1]
+                    if code in seen: continue
+                    seen.add(code)
+                    raw_name = parts[2]
+                    try:
+                        name = json.loads('"' + raw_name + '"')
+                    except:
+                        name = raw_name
+                    mkt = '沪市' if parts[0]=='sh' else '深市'
+                    if code.startswith('3'): mkt = '创业板'
+                    elif code.startswith('68'): mkt = '科创板'
+                    results.append({"code": code, "name": name, "mkt": mkt})
+        return jsonify({"ok": True, "data": results})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))
+    debug = os.environ.get("FLASK_ENV") == "development"
+    print(f"启动服务，端口: {port}")
+    app.run(debug=debug, port=port, host="0.0.0.0")
