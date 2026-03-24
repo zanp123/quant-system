@@ -103,29 +103,50 @@ def backtest_ma_strategy(df: pd.DataFrame) -> dict:
         equity.append(equity[-1] * (1 + (closes.iloc[i] - closes.iloc[i-1]) / closes.iloc[i-1]) if position == 1 else equity[-1])
     return _calc_backtest_stats(equity, trades)
 
-def backtest_boll_strategy(df: pd.DataFrame) -> dict:
-    closes = df["收盘"].astype(float)
-    boll_u, boll_m, boll_l = calc_bollinger(closes)
+
+def backtest_turtle_strategy(df: pd.DataFrame) -> dict:
+    closes = pd.Series(df["收盘"].astype(float).values)
+    highs = closes  # 简化版用收盘价代替最高价
+    lows = closes
+
+    don_high = closes.rolling(20).max()  # 唐安奇通道上轨
+    don_low = closes.rolling(10).min()   # 唐安奇通道下轨
+
+    # ATR计算（简化版，用收盘价波动代替）
+    atr = closes.diff().abs().rolling(14).mean()
+
     position = 0
     buy_price = 0
+    stop_loss = 0
     trades = []
     equity = [1.0]
+
     for i in range(1, len(closes)):
-        if pd.isna(boll_u.iloc[i]) or pd.isna(boll_l.iloc[i]):
+        if pd.isna(don_high.iloc[i]) or pd.isna(don_low.iloc[i]):
             equity.append(equity[-1])
             continue
-        if closes.iloc[i] <= boll_l.iloc[i] and position == 0:
+
+        # 持仓时检查止损和退出信号
+        if position == 1:
+            # 止损或跌破下轨
+            if closes.iloc[i] <= stop_loss or closes.iloc[i] <= don_low.iloc[i]:
+                sell_price = closes.iloc[i]
+                ret = (sell_price - buy_price) / buy_price
+                trades.append({"type": "sell", "price": sell_price, "date": df["日期"].iloc[i], "ret": round(ret, 4)})
+                equity.append(equity[-1] * (1 + ret))
+                position = 0
+                continue
+
+        # 突破上轨买入
+        if closes.iloc[i] > don_high.iloc[i-1] and position == 0:
             position = 1
             buy_price = closes.iloc[i]
+            atr_val = atr.iloc[i] if not pd.isna(atr.iloc[i]) else closes.iloc[i] * 0.02
+            stop_loss = buy_price - 2 * atr_val
             trades.append({"type": "buy", "price": buy_price, "date": df["日期"].iloc[i]})
-        elif closes.iloc[i] >= boll_u.iloc[i] and position == 1:
-            sell_price = closes.iloc[i]
-            ret = (sell_price - buy_price) / buy_price
-            trades.append({"type": "sell", "price": sell_price, "date": df["日期"].iloc[i], "ret": round(ret, 4)})
-            equity.append(equity[-1] * (1 + ret))
-            position = 0
-            continue
+
         equity.append(equity[-1] * (1 + (closes.iloc[i] - closes.iloc[i-1]) / closes.iloc[i-1]) if position == 1 else equity[-1])
+
     return _calc_backtest_stats(equity, trades)
 
 def _fetch_kdata(symbol: str, days: int) -> pd.DataFrame:
@@ -222,8 +243,11 @@ def api_backtest():
         df = _fetch_kdata(symbol, days)
         if strategy == "boll":
             result = backtest_boll_strategy(df)
+        elif strategy == "turtle":
+            result = backtest_turtle_strategy(df)
         else:
             result = backtest_ma_strategy(df)
+
         result["symbol"] = symbol
         result["name"] = STOCK_POOL.get(symbol, symbol)
         result["strategy"] = strategy
