@@ -12,7 +12,6 @@
 html,body{font-family:-apple-system,'PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.5;min-height:100vh}
 .wrap{max-width:780px;margin:0 auto;padding:12px 12px 80px}
 
-/* 顶栏 */
 .topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
 .logo{font-size:17px;font-weight:700;letter-spacing:-.3px}
 .logo em{color:var(--red);font-style:normal}
@@ -20,7 +19,6 @@ html,body{font-family:-apple-system,'PingFang SC','Microsoft YaHei',sans-serif;b
 .dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulse 2s infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
 
-/* 搜索框 */
 .search-wrap{position:relative;margin-bottom:12px}
 .search-input{width:100%;padding:11px 44px 11px 14px;border:1.5px solid var(--border);border-radius:12px;background:var(--card);color:var(--text);font-size:15px;font-family:inherit;outline:none;transition:border-color .2s}
 .search-input:focus{border-color:var(--blue)}
@@ -35,7 +33,6 @@ html,body{font-family:-apple-system,'PingFang SC','Microsoft YaHei',sans-serif;b
 .search-name{font-size:13px;color:var(--text);flex:1}
 .search-mkt{font-size:11px;color:var(--hint)}
 
-/* 昆仑万维信息条 */
 .stock-bar{background:var(--card);border:0.5px solid var(--border);border-radius:14px;padding:14px;margin-bottom:12px}
 .stock-bar-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
 .stock-title{font-size:16px;font-weight:700;color:var(--text)}
@@ -48,13 +45,11 @@ html,body{font-family:-apple-system,'PingFang SC','Microsoft YaHei',sans-serif;b
 .stock-val{font-size:13px;font-weight:600}
 .up{color:var(--red)} .dn{color:var(--green)} .nt{color:var(--text)}
 
-/* 指标卡 */
 .metrics{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:12px}
 .metric{background:var(--card);border:0.5px solid var(--border);border-radius:12px;padding:10px 12px}
 .metric-lbl{font-size:11px;color:var(--muted);margin-bottom:3px}
 .metric-val{font-size:20px;font-weight:700}
 
-/* 控制栏 */
 .ctrl{background:var(--card);border:0.5px solid var(--border);border-radius:14px;padding:10px 12px;margin-bottom:12px}
 .ctrl-row1{display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap}
 .ctrl-row2{display:flex;gap:6px;flex-wrap:wrap}
@@ -65,7 +60,6 @@ select{font-family:inherit;font-size:12px;padding:5px 8px;border:0.5px solid var
 .btn-red{background:var(--red);color:#fff;border-color:var(--red)}
 .btn-blue{background:var(--blue);color:#fff;border-color:var(--blue)}
 
-/* 图表 */
 .chart-card{background:var(--card);border:0.5px solid var(--border);border-radius:14px;padding:12px;margin-bottom:12px}
 .chart-title{font-size:13px;font-weight:600;color:var(--text);margin-bottom:8px;display:flex;align-items:center;justify-content:space-between}
 .tag{font-size:10px;padding:2px 8px;border-radius:5px;font-weight:600}
@@ -79,9 +73,10 @@ select{font-family:inherit;font-size:12px;padding:5px 8px;border:0.5px solid var
 .legend-item{display:flex;align-items:center;gap:4px}
 .legend-line{width:12px;height:2px;border-radius:1px}
 
-/* 回测 */
 .backtest-card{background:var(--card);border:0.5px solid var(--border);border-radius:14px;padding:12px;margin-bottom:12px}
-.bt-title{font-size:13px;font-weight:600;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between}
+.bt-title{font-size:13px;font-weight:600;margin-bottom:10px}
+.strat-tabs{display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;align-items:center}
+.strat-desc{font-size:11px;color:var(--hint);margin-bottom:12px;padding:6px 10px;background:var(--bg);border-radius:8px;line-height:1.6}
 .bt-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:10px}
 .bt-item{background:var(--bg);border-radius:10px;padding:8px 10px}
 .bt-lbl{font-size:10px;color:var(--muted);margin-bottom:2px}
@@ -91,7 +86,6 @@ select{font-family:inherit;font-size:12px;padding:5px 8px;border:0.5px solid var
 .bt-bar-bg{background:var(--bg);height:6px;border-radius:3px;overflow:hidden;margin-bottom:6px}
 .bt-bar-fill{height:100%;border-radius:3px;transition:width .7s ease}
 
-/* 信号卡 */
 .signal-card{background:var(--card);border:0.5px solid var(--border);border-radius:14px;padding:12px;margin-bottom:12px}
 .sig-title{font-size:13px;font-weight:600;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between}
 .sig-big{display:flex;align-items:center;gap:12px;padding:10px;background:var(--bg);border-radius:10px;margin-bottom:8px}
@@ -104,19 +98,16 @@ select{font-family:inherit;font-size:12px;padding:5px 8px;border:0.5px solid var
 .sig-status{font-size:13px;font-weight:600;margin-bottom:2px}
 .sig-rsi{font-size:11px;color:var(--muted)}
 
-/* 日志 */
 .log-card{background:var(--card);border:0.5px solid var(--border);border-radius:14px;padding:12px;margin-bottom:12px}
 .log-title{font-size:13px;font-weight:600;margin-bottom:8px}
 .log-area{font-size:11px;font-family:monospace;color:var(--muted);line-height:1.8;max-height:120px;overflow-y:auto}
 .lt{color:var(--hint)} .lb{color:var(--blue)} .lr{color:var(--red)} .lg{color:var(--green)} .la{color:var(--amber)}
 
-/* 底部导航 */
 .bottom-nav{position:fixed;bottom:0;left:0;right:0;background:var(--card);border-top:0.5px solid var(--border);display:flex;z-index:50;padding-bottom:env(safe-area-inset-bottom)}
 .nav-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px 0;cursor:pointer;font-size:10px;color:var(--muted);gap:3px;transition:color .15s}
 .nav-item.active{color:var(--red)}
 .nav-icon{font-size:20px;line-height:1}
 
-/* 页面切换 */
 .page{display:none}
 .page.active{display:block}
 </style>
@@ -128,7 +119,6 @@ select{font-family:inherit;font-size:12px;padding:5px 8px;border:0.5px solid var
     <div class="status"><span class="dot" id="statusDot"></span><span id="statusTxt">连接中...</span></div>
   </div>
 
-  <!-- 搜索框 -->
   <div class="search-wrap">
     <input class="search-input" id="searchInput" type="text" placeholder="输入股票代码或名称，如 300418 或 昆仑万维" autocomplete="off">
     <button class="search-btn" onclick="doSearch()">🔍</button>
@@ -137,8 +127,6 @@ select{font-family:inherit;font-size:12px;padding:5px 8px;border:0.5px solid var
 
   <!-- 行情页 -->
   <div class="page active" id="pageQuote">
-
-    <!-- 股票信息条 -->
     <div class="stock-bar">
       <div class="stock-bar-top">
         <div>
@@ -160,7 +148,6 @@ select{font-family:inherit;font-size:12px;padding:5px 8px;border:0.5px solid var
       </div>
     </div>
 
-    <!-- 控制栏 -->
     <div class="ctrl">
       <div class="ctrl-row1">
         <select id="daysSel" onchange="loadChart()">
@@ -180,7 +167,6 @@ select{font-family:inherit;font-size:12px;padding:5px 8px;border:0.5px solid var
       </div>
     </div>
 
-    <!-- K线图 -->
     <div class="chart-card">
       <div class="chart-title">
         <span id="chartTitle">K线行情</span>
@@ -193,7 +179,6 @@ select{font-family:inherit;font-size:12px;padding:5px 8px;border:0.5px solid var
       <div class="legend" id="legend"></div>
     </div>
 
-    <!-- 信号卡 -->
     <div class="signal-card">
       <div class="sig-title">策略信号 <span class="tag" id="sigTag" style="background:var(--bg);color:var(--muted)">双均线</span></div>
       <div class="sig-big">
@@ -205,20 +190,25 @@ select{font-family:inherit;font-size:12px;padding:5px 8px;border:0.5px solid var
       </div>
     </div>
 
-    <!-- 指标卡 -->
     <div class="metrics">
       <div class="metric"><div class="metric-lbl">年化收益</div><div class="metric-val up" id="m_annual">—</div></div>
       <div class="metric"><div class="metric-lbl">最大回撤</div><div class="metric-val nt" id="m_dd">—</div></div>
       <div class="metric"><div class="metric-lbl">夏普比率</div><div class="metric-val up" id="m_sharpe">—</div></div>
       <div class="metric"><div class="metric-lbl">胜率</div><div class="metric-val nt" id="m_wr">—</div></div>
     </div>
-
   </div>
 
   <!-- 回测页 -->
   <div class="page" id="pageBacktest">
     <div class="backtest-card">
-      <div class="bt-title">双均线策略回测 <button class="btn btn-blue" id="btBtn" onclick="runBacktest()" style="font-size:11px;padding:4px 12px">▶ 开始回测</button></div>
+      <div class="bt-title">策略回测</div>
+      <div class="strat-tabs">
+        <button class="btn active" id="strat_ma" onclick="switchStrat('ma',this)">📈 双均线</button>
+        <button class="btn" id="strat_boll" onclick="switchStrat('boll',this)">📊 布林带</button>
+        <button class="btn" id="strat_turtle" onclick="switchStrat('turtle',this)">🐢 海龟</button>
+        <button class="btn btn-blue" id="btBtn" onclick="runBacktest()" style="margin-left:auto;font-size:11px;padding:5px 14px">▶ 开始回测</button>
+      </div>
+      <div class="strat-desc" id="stratDesc">5日均线上穿20日均线买入，下穿卖出</div>
       <div class="bt-grid">
         <div class="bt-item"><div class="bt-lbl">策略总收益</div><div class="bt-val up" id="bt_ret">—</div></div>
         <div class="bt-item"><div class="bt-lbl">胜率</div><div class="bt-val" id="bt_wr">—</div></div>
@@ -247,22 +237,17 @@ select{font-family:inherit;font-size:12px;padding:5px 8px;border:0.5px solid var
       </div>
     </div>
   </div>
-
 </div>
 
-<!-- 底部导航 -->
 <div class="bottom-nav">
   <div class="nav-item active" id="nav0" onclick="switchPage(0)">
-    <div class="nav-icon">📈</div>
-    <div>行情</div>
+    <div class="nav-icon">📈</div><div>行情</div>
   </div>
   <div class="nav-item" id="nav1" onclick="switchPage(1)">
-    <div class="nav-icon">🔬</div>
-    <div>回测</div>
+    <div class="nav-icon">🔬</div><div>回测</div>
   </div>
   <div class="nav-item" id="nav2" onclick="switchPage(2)">
-    <div class="nav-icon">📋</div>
-    <div>日志</div>
+    <div class="nav-icon">📋</div><div>日志</div>
   </div>
 </div>
 
@@ -270,40 +255,13 @@ select{font-family:inherit;font-size:12px;padding:5px 8px;border:0.5px solid var
 const API = window.location.origin + '/api';
 let chart = null, currentInd = 'ma', lastData = null;
 let currentSymbol = '300418', currentName = '昆仑万维';
+let currentStrat = 'ma';
 
-// 常用股票库（搜索用）
-const STOCKS = [
-  {code:'300418',name:'昆仑万维',mkt:'创业板'},
-  {code:'600519',name:'贵州茅台',mkt:'沪市'},
-  {code:'000858',name:'五粮液',mkt:'深市'},
-  {code:'300750',name:'宁德时代',mkt:'创业板'},
-  {code:'601318',name:'中国平安',mkt:'沪市'},
-  {code:'000333',name:'美的集团',mkt:'深市'},
-  {code:'600036',name:'招商银行',mkt:'沪市'},
-  {code:'000001',name:'平安银行',mkt:'深市'},
-  {code:'601166',name:'兴业银行',mkt:'沪市'},
-  {code:'600900',name:'长江电力',mkt:'沪市'},
-  {code:'000858',name:'五粮液',mkt:'深市'},
-  {code:'002594',name:'比亚迪',mkt:'深市'},
-  {code:'600276',name:'恒瑞医药',mkt:'沪市'},
-  {code:'601888',name:'中国中免',mkt:'沪市'},
-  {code:'000651',name:'格力电器',mkt:'深市'},
-  {code:'600887',name:'伊利股份',mkt:'沪市'},
-  {code:'601012',name:'隆基绿能',mkt:'沪市'},
-  {code:'300059',name:'东方财富',mkt:'创业板'},
-  {code:'600030',name:'中信证券',mkt:'沪市'},
-  {code:'000725',name:'京东方A',mkt:'深市'},
-  {code:'600809',name:'山西汾酒',mkt:'沪市'},
-  {code:'603288',name:'海天味业',mkt:'沪市'},
-  {code:'002415',name:'海康威视',mkt:'深市'},
-  {code:'601628',name:'中国人寿',mkt:'沪市'},
-  {code:'600000',name:'浦发银行',mkt:'沪市'},
-  {code:'000002',name:'万科A',mkt:'深市'},
-  {code:'600104',name:'上汽集团',mkt:'沪市'},
-  {code:'601398',name:'工商银行',mkt:'沪市'},
-  {code:'601988',name:'中国银行',mkt:'沪市'},
-  {code:'600028',name:'中国石化',mkt:'沪市'},
-];
+const stratDesc = {
+  'ma': '5日均线上穿20日均线买入，下穿卖出',
+  'boll': '价格触及布林带下轨买入，触及上轨卖出',
+  'turtle': '突破20日最高价买入，跌破10日最低价卖出，ATR动态止损'
+};
 
 function log(type, msg) {
   const area = document.getElementById('logArea');
@@ -323,7 +281,18 @@ function switchPage(n) {
   });
 }
 
-// 搜索功能
+function switchStrat(strat, el) {
+  currentStrat = strat;
+  document.querySelectorAll('.strat-tabs .btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('stratDesc').textContent = stratDesc[strat];
+  ['bt_ret','bt_wr','bt_sharpe','bt_dd','bt_trades'].forEach(id => document.getElementById(id).textContent = '—');
+  document.getElementById('bt_ret2').textContent = '—';
+  document.getElementById('bt_dd2').textContent = '—';
+  document.getElementById('bt_bar').style.width = '0%';
+  document.getElementById('bt_dd_bar').style.width = '0%';
+}
+
 const searchInput = document.getElementById('searchInput');
 const searchResults = document.getElementById('searchResults');
 
@@ -366,8 +335,7 @@ async function doSearch() {
     const res = await fetch(`${API}/search?q=${encodeURIComponent(q)}`);
     const json = await res.json();
     if (json.ok && json.data.length > 0) {
-      const found = json.data[0];
-      selectStock(found.code, found.name);
+      selectStock(json.data[0].code, json.data[0].name);
     } else {
       log('WARN', `未找到股票: ${q}`);
     }
@@ -478,7 +446,6 @@ function updateStockInfo(d) {
   sigEl.className='stock-val '+({'买入':'up','卖出':'dn','持有':'nt','关注':'nt'}[sig.signal]||'nt');
   const rsiLast=(d.rsi||[]).filter(v=>v!==null).slice(-1)[0];
   if (rsiLast!=null) document.getElementById('stockRsi').textContent=rsiLast;
-  // 信号卡
   const badge=document.getElementById('sigBadge');
   badge.textContent=sig.signal||'关注';
   badge.className='sig-badge '+({'买入':'badge-buy','卖出':'badge-sell','持有':'badge-hold','关注':'badge-watch'}[sig.signal]||'badge-watch');
@@ -499,12 +466,12 @@ async function loadChart() {
     lastData=json.data;
     renderChart(lastData);
     updateStockInfo(lastData);
-    document.getElementById('chartTitle').textContent=`${lastData.name||currentName} · 真实行情`;
+    document.getElementById('chartTitle').textContent=`${currentName||lastData.name} · 真实行情`;
     document.getElementById('dataTag').textContent='✓ 真实数据';
     document.getElementById('dataTag').className='tag tag-live';
     document.getElementById('statusTxt').textContent=`腾讯财经 · ${lastData.dates.length}根K线`;
-    document.getElementById('bt_stock').textContent=`${lastData.name||currentName}(${currentSymbol})`;
-    log('INFO',`${lastData.name||currentName} 加载完成 · ¥${lastData.latest.close.toFixed(2)} (${lastData.latest.chg_pct>=0?'+':''}${lastData.latest.chg_pct.toFixed(2)}%)`);
+    document.getElementById('bt_stock').textContent=`${currentName||lastData.name}(${currentSymbol})`;
+    log('INFO',`${currentName||lastData.name} 加载完成 · ¥${lastData.latest.close.toFixed(2)} (${lastData.latest.chg_pct>=0?'+':''}${lastData.latest.chg_pct.toFixed(2)}%)`);
   } catch(e) {
     document.getElementById('dataTag').textContent='⚠ 连接失败';
     document.getElementById('dataTag').className='tag tag-err';
@@ -525,22 +492,25 @@ function switchInd(ind, el) {
 async function runBacktest() {
   const btn=document.getElementById('btBtn');
   btn.disabled=true; btn.textContent='计算中...';
-  log('INFO',`开始回测 ${currentName}(${currentSymbol}) · 双均线策略`);
+  log('INFO',`开始回测 ${currentName}(${currentSymbol}) · ${stratDesc[currentStrat]}`);
   try {
-    const res=await fetch(`${API}/backtest?symbol=${currentSymbol}`);
+    const res=await fetch(`${API}/backtest?symbol=${currentSymbol}&days=500&strategy=${currentStrat}`);
     const json=await res.json();
     if (!json.ok) throw new Error(json.error);
     const d=json.data;
     document.getElementById('bt_ret').textContent=(d.total_return>=0?'+':'')+d.total_return+'%';
     document.getElementById('bt_ret').className='bt-val '+(d.total_return>=0?'up':'dn');
     document.getElementById('bt_ret2').textContent=(d.total_return>=0?'+':'')+d.total_return+'%';
+    document.getElementById('bt_ret2').className=(d.total_return>=0?'up':'dn');
     document.getElementById('bt_bar').style.width=Math.min(95,Math.abs(d.total_return)*0.7)+'%';
+    document.getElementById('bt_bar').style.background=d.total_return>=0?'var(--green)':'var(--red)';
     document.getElementById('bt_wr').textContent=d.win_rate+'%';
     document.getElementById('bt_sharpe').textContent=d.sharpe;
     document.getElementById('bt_dd').textContent=d.max_drawdown.toFixed(1)+'%';
     document.getElementById('bt_dd2').textContent=d.max_drawdown.toFixed(1)+'%';
     document.getElementById('bt_dd_bar').style.width=Math.min(95,Math.abs(d.max_drawdown)*2)+'%';
     document.getElementById('bt_trades').textContent=d.trade_count+'次';
+    document.getElementById('bt_stock').textContent=`${currentName}(${currentSymbol})`;
     document.getElementById('m_annual').textContent=(d.total_return>=0?'+':'')+d.total_return+'%';
     document.getElementById('m_annual').className='metric-val '+(d.total_return>=0?'up':'dn');
     document.getElementById('m_dd').textContent=d.max_drawdown.toFixed(1)+'%';
