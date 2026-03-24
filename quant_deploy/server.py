@@ -292,4 +292,4 @@ def api_signals():
     for symbol, name in STOCK_POOL.items():
         try:
             prefix = "sh" if symbol.startswith("6") else "sz"
-            url = f"https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?
+            url = f"https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param={prefix}{symbol},day,,,120,qfq"
