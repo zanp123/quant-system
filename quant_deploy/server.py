@@ -360,6 +360,45 @@ def api_search():
         return jsonify({"ok": True, "data": results})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
+@app.route("/api/market")
+def api_market():
+    import re
+    h = {"Referer": "https://www.eastmoney.com/", "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+    result = {}
+    try:
+        # 1. 涨跌家数
+        r1 = requests.get("https://push2.eastmoney.com/api/qt/stock/get?ut=bd1d9ddb04089700cf9c27f6f7426281&fltt=2&invt=2&fields=f104,f105,f106&secid=1.000001", headers=h, timeout=10)
+        d1 = r1.json().get("data", {})
+        result["up"] = d1.get("f104", 0)
+        result["down"] = d1.get("f105", 0)
+        result["flat"] = d1.get("f106", 0)
+    except: result["up"] = result["down"] = result["flat"] = 0
+
+    try:
+        # 2. 板块资金流前5
+        r2 = requests.get("https://push2.eastmoney.com/api/qt/clist/get?pn=1&pz=5&po=1&np=1&ut=bd1d9ddb04089700cf9c27f6f7426281&fltt=2&invt=2&fid=f62&fs=m:90+t:2&fields=f12,f14,f62,f184&_=1", headers=h, timeout=10)
+        sectors = r2.json().get("data", {}).get("diff", [])
+        result["sectors"] = [{"code": s["f12"], "name": s["f14"], "flow": round(s["f62"]/1e8, 2), "pct": s["f184"]} for s in sectors]
+    except: result["sectors"] = []
+
+    try:
+        # 3. 成交额前30
+        r3 = requests.get("https://push2.eastmoney.com/api/qt/clist/get?pn=1&pz=30&po=1&np=1&ut=bd1d9ddb04089700cf9c27f6f7426281&fltt=2&invt=2&fid=f6&fs=m:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23&fields=f12,f14,f6,f3&_=1", headers=h, timeout=10)
+        stocks = r3.json().get("data", {}).get("diff", [])
+        result["top_amount"] = [{"code": s["f12"], "name": s["f14"], "amount": round(s["f6"]/1e8, 2), "chg": s["f3"]} for s in stocks]
+    except: result["top_amount"] = []
+
+    try:
+        # 4. 涨停板
+        from datetime import datetime
+        date = datetime.now().strftime("%Y%m%d")
+        r4 = requests.get(f"https://push2ex.eastmoney.com/getTopicZTPool?ut=7eea3edcaed734bea9cbfc24409ed989&dpt=wz.ztzt&Pageindex=0&pagesize=50&sort=zm%3Adesc&date={date}", headers={**h, "Referer": "https://quote.eastmoney.com/"}, timeout=10)
+        pool = r4.json().get("data", {}).get("pool", [])
+        result["zt_count"] = r4.json().get("data", {}).get("tc", 0)
+        result["zt_pool"] = [{"code": s.get("c",""), "name": s.get("n",""), "days": s.get("zm",1), "reason": s.get("hybk","")} for s in pool if s.get("zm",1) >= 2]
+    except: result["zt_pool"] = []; result["zt_count"] = 0
+
+    return jsonify({"ok": True, "data": result, "ts": __import__("datetime").datetime.now().strftime("%H:%M:%S")})
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
